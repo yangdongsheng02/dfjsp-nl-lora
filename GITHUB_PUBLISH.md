@@ -33,11 +33,13 @@ gh repo create dfjsp-nl-lora --public --source=. --remote=origin `
   --push
 ```
 
-## 4. 已发布
+## 已发布
 
 仓库地址：**https://github.com/yangdongsheng02/dfjsp-nl-lora**（公开）
 
-可选 Topics：`job-shop-scheduling`, `llm`, `lora`, `unsloth`, `negative-result`, `operations-research`
+主要文档：
+- [PROJECT_INTRO.md](PROJECT_INTRO.md) — 项目介绍
+- [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md) — 实验记录
 
 ## 说明
 
