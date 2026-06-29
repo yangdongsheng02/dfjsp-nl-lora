@@ -1,329 +1,218 @@
 # 问题与解决方案记录
 
-> **文档性质**：开发与实验过程中遇到的 **问题、现象、原因、解决办法** 汇总，便于汇报与后续避坑。  
-> 实验数字与结论见 [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)；项目介绍见 [README.md](README.md)。
-
-**最后更新：** 2026-06-26
+记录本实验在 **任务设计、训练、推理、环境与数据格式** 上遇到的问题及处理情况。实验数据见 [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)，项目概述见 [README.md](README.md)。
 
 ---
 
-## 目录
+## 1. 实验结论相关（未解决）
 
-- [一、任务与模型层面（未完全解决）](#一任务与模型层面未完全解决)
-- [二、训练与微调](#二训练与微调)
-- [三、推理与评估](#三推理与评估)
-- [四、Windows 与环境](#四windows-与环境)
-- [五、流水线与脚本](#五流水线与脚本)
-- [六、数据、Prompt 与标签](#六数据prompt-与标签)
-- [七、开源与 Git](#七开源与-git)
-- [八、问题状态总表](#八问题状态总表)
+### 1.1 题干时刻 t 与标签全局时间轴不一致
 
----
+**现象：** Base 与 LoRA 生成结果大量出现「18时/21时/24时开始」，与标签中多数工序 `start < t` 不符；strict 工序召回约 0%。
 
-## 一、任务与模型层面（未完全解决）
+**原因：** 题干以插队时刻 `t` 及机台状态为主线；标签为从 0 起的全局最优完整排程。自由生成时，模型倾向于复用题干中的 `t` 与可选加工时间，而非推理全局排程。
 
-### 1.1 题干「当前时刻 t」与标签「全局从 0 起算」冲突
+**已做修改：** 在 `INSTRUCTION` 与标签首行注明「全局时间轴从 0 起算，非当前时刻 t」。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | Base/LoRA 生成都大量写「18时/21时/24时开始」，与标签中 `start < t` 的工序矛盾；strict 工序召回 ≈ 0%。 |
-| **原因** | 题干强调插队现场 `t`；标签要求完整全局最优排程。模型自由生成时 **抄题干里最显眼的数字 t** 最省力；system prompt 写「不要用 t」难以抵消。 |
-| **尝试** | 在 `INSTRUCTION` 与标签头中强调「全局时间轴从 0 起算，非当前时刻 t」。 |
-| **结果** | **未解决**；过拟合单条 loss→0 仍 strict recall 0%。 |
-| **后续建议** | 统一坐标系（相对 t 或题干不突出 t）；或改为 LLM+求解器，不坚持纯 NL 全排程。 |
-
-### 1.2 训练 loss→0，但自由生成不会排程
-
-| 项 | 内容 |
-|----|------|
-| **现象** | 500 step 后 step loss ≈ 0；过拟合门控单样本同样 loss 极低。 |
-| **原因** | **Teacher forcing** 下能续写标签 token；**自回归从空 assistant 生成** 时分布不同（exposure bias）。长结构化输出（~30 行）尤甚。 |
-| **尝试** | 仅对 assistant 段算 loss（`label_start_index` + mask）。 |
-| **结果** | **未解决**；必须用自由生成 + strict 指标验收。 |
-| **后续建议** | 过拟合门控先测生成；考虑 DPO 惩罚抄 t；缩短输出或分阶段训练。 |
-
-### 1.3 LoRA 后「完整方案率」反而低于 Base（98% → 36%）
-
-| 项 | 内容 |
-|----|------|
-| **现象** | LoRA 解析率 100%，但完整方案率仅 36%；Base 为 98%。 |
-| **定义** | `完整` = 至少 1 条可解析工序 **且** 输出含 `预计总完工时间：XX` 行（见 `scheduling_format.parse_schedule_completion`）。 |
-| **原因** | LoRA 更易 **中途抄回题干**（`急单 J7`、`工序1：可选`），触发 `_nl_generation_done` early-stop，**来不及写 makespan 行**。32/50 条 LoRA 不完整样本 **均无 makespan 行**，其中 27 条含抄题特征。Base 常能凑完 makespan 行（数值常错如「3」），故形式上更「完整」。 |
-| **尝试** | 全量 LoRA 训练 500 step。 |
-| **结果** | **调度未变好，形式完整性变差**；平均预测工序数 Base/LoRA 均 ~10 条（标签 ~30），非条数少而是 **收尾失败**。 |
-| **后续建议** | 不以完整方案率单独论优劣；以 strict recall / makespan 为准；微调若加重抄题干，可能损害生成行为。 |
-
-### 1.4 解析率 100% 的误导
-
-| 项 | 内容 |
-|----|------|
-| **现象** | Base/LoRA 解析成功率均 100%。 |
-| **原因** | 只要输出「像排程」的中文列表即可被 `NL_OP_RE` 解析；内容与标签可完全无关。 |
-| **解决办法** | 以 **strict op recall、makespan exact/gap** 为主指标；oracle 50/50 验证打分管线。 |
-| **状态** | ✅ 流程已落实（`eval_schedule.py` + `validate_pipeline.py`）。 |
-
-### 1.5 过拟合门控 FAIL 仍做全量训练
-
-| 项 | 内容 |
-|----|------|
-| **现象** | `overfit_sanity.py`：单样本 400 step 后 strict 0%、jom 29%，未达 50% 门槛。 |
-| **原因** | 同上，loss 与生成脱节。 |
-| **决定** | 用户确认跳过门控，仍跑 500 step 全量训练；**结果与门控预判一致**。 |
-| **教训** | 小数据 + 长输出，**务必先过拟合 1 条看生成**；可节省约 2 小时无效训练。 |
+**结果：** 未改善生成质量；单样本过拟合 loss 接近 0 时 strict recall 仍为 0%。
 
 ---
 
-## 二、训练与微调
+### 1.2 训练 loss 收敛但自由生成无效
 
-### 2.1 HF 原生 QLoRA 在 4GB 上过慢
+**现象：** 全量 500 step 及单样本过拟合实验中，训练 loss 均可压至接近 0。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | `train_hf_qlora.py` 约 **125 s/step**，全量 500 step 不现实。 |
-| **原因** | 未用 Unsloth 优化路径；4GB batch=1 仍慢。 |
-| **解决办法** | 全量训练改用 **`train_unsloth.py`**（约 14 s/step）。HF 脚本保留作备选。 |
-| **状态** | ✅ 已切换 |
+**原因：** SFT 在 teacher forcing 下可续写标签 token；从空 assistant 段自回归生成时分布不一致（exposure bias）。单条输出约 30 道工序，序列长，问题更明显。
 
-### 2.2 Windows + Triton：`torch.compile` / cut_cross_entropy 崩 backward
+**已做修改：** 仅对 assistant 排程段计算 loss（`label_start_index`、标签掩码）。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | 训练 backward 报错（triton_key 等）。 |
-| **解决办法** | 训练前设置环境变量（`train_unsloth.py` 内也有 default）：<br>`UNSLOTH_COMPILE_DISABLE=1`<br>`TORCH_COMPILE_DISABLE=1` |
-| **状态** | ✅ 已固化 |
-
-### 2.3 4GB 显存：双 Python 进程挂死
-
-| 项 | 内容 |
-|----|------|
-| **现象** | GPU 利用率 0%、显存仍占满，训练/评估无进展。 |
-| **原因** | 4GB 上同时跑两个占 GPU 的 Python（如训练 + 评估、或僵尸进程）。 |
-| **解决办法** | 开训/评估前结束其它 `python`；任务管理器或 `nvidia-smi` 确认显存释放。训练单进程峰值 ~1.74 GB 属正常。 |
-| **状态** | ✅ 操作规范 |
-
-### 2.4 LoRA 评估 base 命名空间不一致
-
-| 项 | 内容 |
-|----|------|
-| **现象** | LoRA 加载或生成异常（与 Unsloth 训练权重不匹配）。 |
-| **原因** | 训练用 `unsloth/Qwen2.5-1.5B-Instruct`；若评估 base 用 `Qwen/Qwen2.5-1.5B-Instruct` 挂 adapter 可能不一致。 |
-| **解决办法** | LoRA 评估：**base = `unsloth/...` + adapter**；Base 零样本：**`Qwen/...`**（见 `local_inference.py` / `eval_schedule.py`）。 |
-| **状态** | ✅ 已对齐 |
-
-### 2.5 `save_pretrained_merged` 4bit 舍入
-
-| 项 | 内容 |
-|----|------|
-| **现象** | PEFT 警告 merge 到 4bit 可能有舍入误差，生成与 adapter 略有差异。 |
-| **解决办法** | 评估优先 **adapter + 同 base**；`merged_hf` 便于部署时再验一轮。 |
-| **状态** | ⚠️ 已知限制 |
-
-### 2.6 训练占用显存「看起来很高」但 GPU 利用率为 0
-
-| 项 | 内容 |
-|----|------|
-| **现象** | 显存 ~3.8GB 占用，GPU 利用率长时间 0%。 |
-| **原因** | 多为 **卡死/僵尸进程**，非正常训练。 |
-| **解决办法** | 杀进程重跑；正常训练时利用率应周期性升高（~100%）。 |
-| **状态** | ✅ 已识别 |
+**结果：** 训练指标正常，生成指标仍无效；评估必须以自由生成 + strict 工序召回为准。
 
 ---
 
-## 三、推理与评估
+### 1.3 LoRA 后完整方案率低于 Base（98% → 36%）
 
-### 3.1 Unsloth `generate` 在 Windows 上不可用
+**现象：** LoRA 解析成功率 100%，完整方案率 36%；Base 为 98%。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | Unsloth  patched generate 输出乱码/重复。 |
-| **原因** | Windows + CUDA 11.8 与 Unsloth generate 路径不兼容。 |
-| **解决办法** | 评估统一走 **`local_inference.py` → HF `model.generate`** / `scheduling_format.generate_fast`；不在 Windows 上用 Unsloth generate。 |
-| **状态** | ✅ 已切换 |
+**指标定义：** 「完整」指至少解析出 1 条工序，且输出包含 `预计总完工时间：XX`（`scheduling_format.parse_schedule_completion`）。
 
-### 3.2 Base 与 LoRA 使用不同 decode 模式
+**原因：** LoRA 生成过程中更易回写题干内容（如「急单 J7」「工序1：可选」），触发 `_nl_generation_done` 提前停止，未输出 makespan 行。50 条 LoRA 样本中 32 条不完整，均无 makespan 行，其中 27 条含题干复述特征。Base 与 LoRA 平均预测工序数均约 10 条（标签约 30 条）；差异主要在是否写完 makespan，而非条数。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | 对比时解码策略不一致。 |
-| **约定** | Base：`decode=fast`（`model.generate` + stopping criteria）<br>LoRA：`decode=padded`（逐 token，对齐训练 padding） |
-| **说明** | 有意为之；LoRA 完整率下降主因是 **抄题干 early-stop**，非单纯 decode 差异。 |
-| **状态** | ✅ 文档化于 `eval_schedule.py` |
-
-### 3.3 生成 early-stop：抄题干即停
-
-| 项 | 内容 |
-|----|------|
-| **现象** | 生成在「急单 J7」「工序1：可选」等处截断。 |
-| **原因** | `_nl_generation_done()` 检测到 **复述问题描述** 则停止，避免无限胡写。 |
-| **副作用** | LoRA 更易触发表述 → **完整方案率下降**（见 1.3）。 |
-| **状态** | ✅ 设计如此；是否放宽需权衡指标 |
-
-### 3.4 评估极慢（50×2 模式）
-
-| 项 | 内容 |
-|----|------|
-| **现象** | Step 3 对比评估可跑 **数小时**（50 样本 × base + LoRA，逐条生成 ~30 行预算）。 |
-| **解决办法** | 调试时用 `--max-samples 5`；正式结果用 `--max-samples 0`。日志重定向到 `eval_nl_compare.log`。 |
-| **状态** | ✅ 可接受 |
-
-### 3.5 Oracle 校验
-
-| 项 | 内容 |
-|----|------|
-| **目的** | 排除「解析/打分代码写错」导致假阴性。 |
-| **结果** | Oracle 50/50 完全一致。 |
-| **状态** | ✅ `validate_pipeline.py` + `eval_schedule.py --mode oracle` |
+**结果：** LoRA 未提升调度正确性，完整方案率反而下降。
 
 ---
 
-## 四、Windows 与环境
+### 1.4 解析成功率不能代表排程正确
 
-### 4.1 PowerShell `Tee-Object` UTF-8 解码错误
+**现象：** Base / LoRA 解析成功率均为 100%。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb2`；日志乱码。 |
-| **原因** | 管道编码与 Unsloth 输出二进制/GBK 混杂。 |
-| **解决办法** | `$env:PYTHONUTF8="1"`；`train_unsloth.py` 设 `PYTHONIOENCODING=utf-8`；**重定向到文件** 优于 Tee（`run_nl_pipeline.ps1` 用 `Start-Process -RedirectStandardOutput`）。 |
-| **状态** | ✅ 可绕过；训练不受影响 |
+**原因：** 解析器只要求输出符合 `- Jx-Ox 机器Mx，…时开始，加工…单位` 格式，不要求与标签一致。
 
-### 4.2 国内 HuggingFace 下载慢/超时
-
-| 项 | 内容 |
-|----|------|
-| **解决办法** | `$env:HF_ENDPOINT="https://hf-mirror.com"`；`HF_HUB_DOWNLOAD_TIMEOUT=300`（`train_unsloth.py` 默认）。 |
-| **状态** | ✅ 已用 |
-
-### 4.3 `install.ps1` 依赖顺序
-
-| 项 | 内容 |
-|----|------|
-| **要点** | PyTorch cu118 → requirements → xformers/accelerate **--no-deps** → unsloth **--no-deps**，避免 torch 被覆盖。 |
-| **验证** | `python check_env.py` |
-| **状态** | ✅ 见 `install.ps1` |
+**处理：** 以 strict op recall、makespan 匹配为主指标；oracle 模式 50/50 用于校验评估代码（`eval_schedule.py`、`validate_pipeline.py`）。
 
 ---
 
-## 五、流水线与脚本
+### 1.5 过拟合门控未通过仍执行全量训练
 
-### 5.1 `run_nl_pipeline.ps1` 日志不刷新
+**现象：** `overfit_sanity.py` 在单样本 400 step 后 strict op recall 0%、jom recall 29%，低于 50% 门槛。
 
-| 项 | 内容 |
-|----|------|
-| **现象** | 管道读端到进程结束才显示日志。 |
-| **解决办法** | `Start-Process` + `-RedirectStandardOutput` / `-RedirectStandardError` 到 `.log` 文件。 |
-| **状态** | ✅ 已改 |
+**结果：** 全量 500 step 训练后指标与门控预判一致，未出现门控误判。
 
-### 5.2 训练前校验门
+---
 
-| 项 | 内容 |
-|----|------|
-| **作用** | `validate_pipeline.py`：NL 编解码、oracle、jsonl token 长度、标签完整。 |
-| **状态** | ✅ `train_unsloth.py` 开头自动调用 |
+## 2. 训练
 
-### 5.3 推荐执行顺序
+### 2.1 HF QLoRA 训练过慢
+
+**现象：** `train_hf_qlora.py` 约 125 s/step，500 step 在 4GB 显卡上不可行。
+
+**处理：** 全量训练改用 `train_unsloth.py`（约 14 s/step）。HF 脚本保留未删。
+
+---
+
+### 2.2 Windows 下 Triton compile 导致 backward 失败
+
+**现象：** 训练 backward 阶段报错（与 triton_key / torch.compile 相关）。
+
+**处理：** 设置环境变量 `UNSLOTH_COMPILE_DISABLE=1`、`TORCH_COMPILE_DISABLE=1`（`train_unsloth.py` 内亦有默认设置）。
+
+---
+
+### 2.3 4GB 显存下多进程占满 GPU
+
+**现象：** 显存占用高、GPU 利用率长期 0%，进程无进展。
+
+**原因：** 4GB 环境下不宜同时运行两个占用 GPU 的 Python 进程；亦可能是异常退出后的残留进程。
+
+**处理：** 训练或评估前结束其它 python 进程；`nvidia-smi` 确认显存释放。单进程训练峰值约 1.74 GB。
+
+---
+
+### 2.4 LoRA 加载 base 模型命名空间
+
+**现象：** LoRA 评估时若 base 与训练时不一致，加载或生成异常。
+
+**处理：** 训练与 LoRA 推理使用 `unsloth/Qwen2.5-1.5B-Instruct`；Base 零样本评估使用 `Qwen/Qwen2.5-1.5B-Instruct`（见 `local_inference.py`、`eval_schedule.py`）。
+
+---
+
+### 2.5 合并 4bit 权重时的舍入
+
+**现象：** `save_pretrained_merged` 提示 merge 到 4bit 可能存在舍入误差。
+
+**处理：** 评估以 adapter + 对应 base 为准；`merged_hf` 用于导出时再核对生成结果。
+
+---
+
+## 3. 推理与评估
+
+### 3.1 Windows 下 Unsloth generate 不可用
+
+**现象：** Unsloth  patched `generate` 输出乱码或重复。
+
+**处理：** 评估统一经 `local_inference.py` 调用 HuggingFace `model.generate`（`scheduling_format.generate_fast` / `generate_completion`）。
+
+---
+
+### 3.2 Base 与 LoRA 解码方式不同
+
+**约定：** Base 使用 `decode=fast`；LoRA 使用 `decode=padded`（与训练时 padding 方式一致）。见 `eval_schedule.py`。
+
+**说明：** LoRA 完整方案率下降的主要原因见 1.3，并非单纯 decode 差异所致。
+
+---
+
+### 3.3 生成提前停止（复述题干）
+
+**机制：** `_nl_generation_done` 在检测到 `预计总完工时间`、或出现「作业 Jx」「工序1：可选」等题干特征时停止生成。
+
+**影响：** LoRA 更易触发停止，导致缺少 makespan 行（见 1.3）。
+
+---
+
+### 3.4 对比评估耗时
+
+**现象：** 50 条 × base + LoRA，逐步生成，Step 3 可运行数小时。
+
+**处理：** 调试使用 `--max-samples` 限制条数；正式结果 `--max-samples 0`；日志写入 `eval_nl_compare.log`。
+
+---
+
+## 4. 环境与依赖
+
+### 4.1 控制台 UTF-8 / 日志乱码
+
+**现象：** PowerShell 管道重定向时出现 `UnicodeDecodeError` 或中文乱码。
+
+**处理：** 设置 `PYTHONUTF8=1`；`run_nl_pipeline.ps1` 将 stdout/stderr 重定向到文件，而非 `Tee-Object` 管道。
+
+---
+
+### 4.2 HuggingFace 模型下载
+
+**处理：** 可选 `HF_ENDPOINT=https://hf-mirror.com`；`HF_HUB_DOWNLOAD_TIMEOUT=300`（`train_unsloth.py` 默认）。
+
+---
+
+### 4.3 依赖安装顺序
+
+**处理：** 按 `install.ps1`：PyTorch cu118 → requirements → xformers/accelerate（`--no-deps`）→ unsloth（`--no-deps`），避免覆盖 torch。安装后运行 `check_env.py`。
+
+---
+
+## 5. 流水线
+
+### 5.1 训练前校验
+
+`validate_pipeline.py` 检查 NL 编解码、oracle 指标、jsonl token 长度；`train_unsloth.py` 启动时自动执行。
+
+### 5.2 建议执行顺序
 
 ```text
-validate（自动）→ overfit_sanity（建议）→ Step1 base eval → Step2 train → Step3 compare
+validate_pipeline（自动）→ overfit_sanity（可选）→ Step1 评估 → Step2 训练 → Step3 对比
 ```
 
 ---
 
-## 六、数据、Prompt 与标签
+## 6. 数据与 Prompt 调整记录
 
-### 6.1 Alpaca 模板 → Qwen chat 模板
+| 阶段 | 问题 | 修改 |
+|------|------|------|
+| 早期 | Alpaca 模板与 Qwen2.5-Instruct 不匹配 | 改为 `apply_chat_template`，用 `CHAT_ASSISTANT_MARKER` 定位标签 |
+| 早期 | 模型照抄 system 内具体示例工序 | `OUTPUT_EXAMPLE` 改为占位符，并注明勿照抄 |
+| 中期 | 开始时刻理解混乱 | 标签首行增加「全局时间轴从 0 起算」说明 |
+| — | 仍抄题干 `t` | 见 1.1，未解决 |
 
-| 项 | 内容 |
-|----|------|
-| **现象** | 早期格式与 Qwen2.5-Instruct 不对齐，生成/训练不一致。 |
-| **解决办法** | `scheduling_format.py` 使用 `tokenizer.apply_chat_template`；`CHAT_ASSISTANT_MARKER` 定位标签起点。 |
-| **状态** | ✅ 已改 |
-
-### 6.2 系统示例照抄（占位符 J1-O1）
-
-| 项 | 内容 |
-|----|------|
-| **现象** | 模型照抄 system 里具体示例工序。 |
-| **解决办法** | `OUTPUT_EXAMPLE` 改为 **占位符** `{工件}-{工序}`，并注明勿照抄。 |
-| **状态** | ✅ 已改；仍难阻止抄题干 t。 |
-
-### 6.3 标签头标明全局时间轴
-
-| 项 | 内容 |
-|----|------|
-| **改动** | 标签首行：`重调度方案（全局时间轴从0起算，非当前时刻t）：` |
-| **结果** | loss 可降，**生成仍抄 t**（见 1.1）。 |
-| **状态** | ⚠️ 部分缓解，未根治 |
-
-### 6.4 单条样本规模（避免误解为「小玩具题」）
-
-| 项 | 内容 |
-|----|------|
-| **事实** | 每样本标签 **23–37 道工序**（中位 30）；7–8 个作业；序列 **1200–1450 tokens**。 |
-| **文档** | 已写入 README / EXPERIMENT_REPORT。 |
+单条样本规模：标签 23–37 道工序（中位 30），7–8 个作业，含 prompt 约 1200–1450 tokens。
 
 ---
 
-## 七、开源与 Git
+## 7. 状态汇总
 
-### 7.1 `gh` 未登录
-
-| 项 | 内容 |
-|----|------|
-| **解决办法** | `gh auth login`（设备码 https://github.com/login/device） |
-| **状态** | ✅ 已登录 yangdongsheng02 |
-
-### 7.2 `git push` 报错 `remote-https is not a git command`
-
-| 项 | 内容 |
-|----|------|
-| **原因** | 本机 Git 安装不完整，缺少 remote-https helper。 |
-| **解决办法** | `winget install Git.Git` 升级；`gh auth setup-git`；推送前确保 PATH 中优先 `Git\cmd\git.exe` 而非 `git-core\git.exe`。 |
-| **状态** | ✅ 已推送至 https://github.com/yangdongsheng02/dfjsp-nl-lora |
-
-### 7.3 大文件不入库
-
-| 项 | 内容 |
-|----|------|
-| **规则** | `.gitignore` 排除 `lora_output/*.safetensors`、`*.bin`、`.venv`、`*.log` 等。 |
-| **说明** | 克隆后需本地 `train_unsloth.py` 生成权重。 |
-
----
-
-## 八、问题状态总表
-
-| # | 问题 | 状态 | 文档/代码位置 |
-|---|------|------|----------------|
-| 1 | 题干 t vs 标签全局 0 轴 | ❌ 未解决 | `scheduling_format.INSTRUCTION` |
-| 2 | loss→0 但生成不会排程 | ❌ 未解决 | `overfit_sanity.py` |
-| 3 | LoRA 完整方案率 < Base | ❌ 未解决（行为退化） | `eval_nl_samples.csv` |
-| 4 | strict 召回 ≈ 0% | ❌ 未解决 | `eval_nl_comparison.csv` |
-| 5 | 解析率误导 | ✅ 指标纠偏 | `eval_schedule.py` |
-| 6 | Unsloth Windows generate | ✅ 绕过 | `local_inference.py` |
-| 7 | HF QLoRA 过慢 | ✅ 换 Unsloth | `train_unsloth.py` |
-| 8 | Triton compile 崩 | ✅ 禁 compile | 环境变量 |
-| 9 | 4GB 双进程挂死 | ✅ 操作规范 | — |
-| 10 | LoRA base 命名空间 | ✅ 对齐 | `local_inference.py` |
-| 11 | UTF-8 / 日志乱码 | ✅ 绕过 | `run_nl_pipeline.ps1` |
-| 12 | Chat 模板 / 占位符 | ✅ 已改 | `scheduling_format.py` |
-| 13 | 过拟合门控 | ⚠️ 可用但曾跳过 | `overfit_sanity.py` |
-| 14 | Git push / gh 登录 | ✅ 已解决 | `GITHUB_PUBLISH.md` |
-
-**图例：** ✅ 已解决/已规避　❌ 实验层面未达成　⚠️ 已知限制或建议未严格执行
-
----
-
-## 附录：相关日志与结果文件
-
-| 文件 | 用途 |
+| 问题 | 状态 |
 |------|------|
-| `overfit_sanity.log` | 单样本过拟合门控 FAIL 记录 |
-| `train_nl.log` | 500 step 全量训练 |
-| `eval_nl_base.log` | Base 评估 |
-| `eval_nl_compare.log` | Base vs LoRA 对比 |
-| `eval_nl_comparison.csv` | 汇总指标 |
-| `eval_nl_samples.csv` | 逐条 raw 预览（含截断/抄题样例） |
+| 题干 t 与标签全局 0 轴冲突 | 未解决 |
+| loss 收敛但生成无效 | 未解决 |
+| LoRA 完整方案率低于 Base | 未解决 |
+| strict 工序召回约 0% | 未解决 |
+| 解析率不能代表正确性 | 已调整评估指标 |
+| Unsloth Windows generate | 已改用 HF generate |
+| HF QLoRA 过慢 | 已改用 Unsloth 训练 |
+| Triton compile 报错 | 已禁用 compile |
+| 4GB 多进程占 GPU | 需单进程运行 |
+| LoRA base 命名空间 | 已统一 |
+| UTF-8 / 日志 | 已按上述方式处理 |
+| Chat 模板与占位符 | 已修改 |
 
 ---
 
-*若新问题在复现中出现，建议在本文件末尾按同一表格格式追加条目。*
+## 附录：相关日志
+
+| 文件 | 内容 |
+|------|------|
+| `overfit_sanity.log` | 单样本过拟合门控 |
+| `train_nl.log` | 500 step 训练 |
+| `eval_nl_base.log` | Base 评估 |
+| `eval_nl_compare.log` | Base vs LoRA |
+| `eval_nl_comparison.csv` | 汇总指标 |
+| `eval_nl_samples.csv` | 逐样本输出片段 |

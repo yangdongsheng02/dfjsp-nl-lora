@@ -1,8 +1,6 @@
-# 实验记录报告：DFJSP 自然语言端到端 LoRA 微调
+# 实验记录：DFJSP 自然语言端到端 LoRA 微调
 
-> **项目介绍**见 [README.md](README.md)。  
-> **问题与解决方案**见 [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。  
-> 本文件为 **实验过程与结果的完整记录**。
+项目概述见 [README.md](README.md)。问题与处理见 [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。
 
 **报告日期：** 2026-06-26  
 **硬件：** NVIDIA GeForce RTX 3050 Laptop GPU（4 GB VRAM）  

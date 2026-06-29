@@ -12,7 +12,7 @@
 |------|------|
 | [README.md](README.md) | **项目介绍**（本页）：背景、工程价值、目的、实现、快速开始 |
 | [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md) | **实验记录**：配置、结果表、失败分析、复现命令 |
-| **[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)** | **问题与解决方案**：开发/实验中遇到的问题、原因、解决办法与状态总表 |
+| **[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)** | 实验与实现过程中的问题及处理记录 |
 | [eval_nl_comparison.csv](eval_nl_comparison.csv) | Base vs LoRA 汇总指标 |
 
 ---
@@ -182,17 +182,15 @@ $env:UNSLOTH_COMPILE_DISABLE = "1"
 
 ---
 
-## 常见警示
+## 常见问题
 
-> 详细条目（现象 / 原因 / 解决办法 / 是否已解决）见 **[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)**。
-
+实验与实现中的具体问题及处理见 [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。摘要如下：
 1. **题干 t vs 标签全局 0 轴**：模型易抄 t；设计 NL 任务时输入输出坐标系要一致。  
 2. **loss→0 ≠ 会排产**：必须自由生成 + strict 指标；teacher forcing 会骗人。  
 3. **解析率 100% 幻觉**：格式对、内容可全错。  
-4. **先跑 overfit 门控**：小数据长输出，单条不过就别训满 500 step。
+4. **过拟合门控：** 单样本 strict recall 为 0 时，全量训练通常无效；本次全量结果与门控一致。
 
-更多失败模式与复现命令 → [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)。  
-**问题现象、原因与解决办法全集** → [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。
+实验配置与结果：[EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)。问题记录：[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。
 
 ---
 
@@ -202,7 +200,7 @@ $env:UNSLOTH_COMPILE_DISABLE = "1"
 
 **若继续端到端**：需更大模型/数据、约束解码、或分阶段（先 J-O-M 再时间）；边缘 4GB 更适合 **短输出、Tool-call**，而非 30 行自由最优排程。
 
-**本仓库价值**：负结果 + 可跑通流水线，帮团队 **少踩「loss 很低」的坑**，明确小模型边缘部署的能力边界。
+**本仓库内容：** 可复现实验代码、200/50 条数据、评估结果，以及上述负结果记录。
 
 ---
 

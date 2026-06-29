@@ -38,8 +38,9 @@ gh repo create dfjsp-nl-lora --public --source=. --remote=origin `
 仓库地址：**https://github.com/yangdongsheng02/dfjsp-nl-lora**（公开）
 
 主要文档：
-- [README.md](README.md) — 项目介绍（含背景、工程价值、实现说明）
+- [README.md](README.md) — 项目介绍
 - [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md) — 实验记录
+- [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md) — 问题与处理记录
 
 ## 说明
 
