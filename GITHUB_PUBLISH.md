@@ -33,11 +33,11 @@ gh repo create dfjsp-nl-lora --public --source=. --remote=origin `
   --push
 ```
 
-## 4. 推送后请做
+## 4. 已发布
 
-1. 打开 GitHub 仓库 **Settings → General**，确认仓库为 Public。  
-2. 将 `README.md` 里 BibTeX 的 `YOUR_USERNAME` 改成你的 GitHub 用户名，再提交一次。  
-3. （可选）添加 Topics：`job-shop-scheduling`, `llm`, `lora`, `unsloth`, `negative-result`, `operations-research`
+仓库地址：**https://github.com/yangdongsheng02/dfjsp-nl-lora**（公开）
+
+可选 Topics：`job-shop-scheduling`, `llm`, `lora`, `unsloth`, `negative-result`, `operations-research`
 
 ## 说明
 
