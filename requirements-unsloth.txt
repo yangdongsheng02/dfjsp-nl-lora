@@ -1,0 +1,3 @@
+# 与 torch 2.4.1+cu118 兼容（勿用 2026.x，需要 torch>=2.11）
+unsloth==2025.6.8
+unsloth_zoo==2025.6.8

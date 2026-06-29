@@ -1,0 +1,3 @@
+model,samples,json_parse_rate,schedule_rate,complete_rate,makespan_exact_rate,makespan_gap_abs_mean,avg_op_coverage
+unsloth/Qwen2.5-1.5B (base),50,1.0,0.0,0.0,0.0,,
+unsloth/Qwen2.5-1.5B + LoRA,50,0.28,0.0,0.0,0.0,,

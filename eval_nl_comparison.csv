@@ -1,0 +1,3 @@
+model,samples,parse_rate,schedule_rate,complete_rate,schedule_exact_rate,makespan_exact_rate,makespan_gap_abs_mean,avg_op_recall,avg_op_precision
+unsloth/Qwen2.5-1.5B-Instruct (base),50,1.0,0.98,0.98,0.0,0.0,20.653061224489797,0.005589811184462838,0.01020688495178291
+unsloth/Qwen2.5-1.5B-Instruct + LoRA,50,1.0,1.0,0.36,0.0,0.0,23.16,0.0020100014927601135,0.009000000000000001

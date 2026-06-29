@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# Model weights & checkpoints (re-train locally; too large for git)
+lora_output/*.safetensors
+lora_output/*.bin
+lora_output/adapter_model.*
+lora_output/merged_hf/*.safetensors
+lora_output/merged_hf/*.bin
+lora_output/merged_hf/model*.safetensors
+overfit_lora_sanity/*.safetensors
+overfit_lora_sanity/*.bin
+overfit_lora_sanity/merged_hf/
+overfit_lora_sanity/adapter_model.*
+
+# Logs (optional local runs; key results are in CSV + REPORT)
+*.log
+*.log.err
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# HuggingFace cache
+.cache/
+huggingface/
+
+# Unsloth runtime cache (regenerated locally)
+unsloth_compiled_cache/
+
+# Local research drafts (optional)
+*.docx

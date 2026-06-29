@@ -1,0 +1,3 @@
+﻿model,samples,errors,json_parse_rate,type_match_rate,makespan_exact_rate,makespan_gap_mean,makespan_gap_abs_mean
+unsloth/Qwen2.5-1.5B (训练前基座),50,0,0.1,0.1,0.0,15.4,30.6
+unsloth/Qwen2.5-1.5B + LoRA,50,0,0.16,0.16,0.0,51.875,54.125
