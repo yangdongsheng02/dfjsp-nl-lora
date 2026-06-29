@@ -1,7 +1,7 @@
 # 实验记录报告：DFJSP 自然语言端到端 LoRA 微调
 
-> **文档性质**：本文件为 **实验过程与结果的完整记录**（配置、数据、指标、失败分析、复现）。  
-> **项目背景与行业讨论** 见 **[PROJECT_INTRO.md](PROJECT_INTRO.md)**。
+> **项目介绍**（背景、工程价值、实现说明）见 **[README.md](README.md)**。  
+> 本文件为 **实验过程与结果的完整记录**。
 
 **报告日期：** 2026-06-26  
 **硬件：** NVIDIA GeForce RTX 3050 Laptop GPU（4 GB VRAM）  
@@ -271,4 +271,4 @@ $env:TORCH_COMPILE_DISABLE="1"
 
 ---
 
-*实验记录结束 · 背景与展望见 [PROJECT_INTRO.md](PROJECT_INTRO.md)*
+*实验记录结束 · 项目介绍见 [README.md](README.md)*
