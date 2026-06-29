@@ -314,14 +314,12 @@ LoRA 加载须用 **`unsloth/Qwen2.5-1.5B-Instruct`** 作 base，与 `Qwen/` 命
 @misc{dfjsp_nl_lora_2026,
   title        = {DFJSP-NL-LoRA: Natural Language End-to-End Scheduling with LoRA on 4GB GPU (Negative Result)},
   year         = {2026},
-  howpublished = {\url{https://github.com/YOUR_USERNAME/dfjsp-nl-lora}},
+  howpublished = {\url{https://github.com/yangdongsheng02/dfjsp-nl-lora}},
   note         = {Open-source reproducibility baseline for DFJSP natural language I/O}
 }
 ```
 
-请将 `YOUR_USERNAME` 替换为实际 GitHub 用户名。
-
-**License:** [MIT](LICENSE)
+**仓库地址：** https://github.com/yangdongsheng02/dfjsp-nl-lora
 
 ---
 
