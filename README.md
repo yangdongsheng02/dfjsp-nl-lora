@@ -4,7 +4,7 @@
 > 在 RTX 3050 4GB 上，用 Qwen2.5-1.5B + LoRA 验证小模型能否学会「读题干 → 写完整最优排程」。  
 > **结论：本设定下未成功（negative result）**；仓库保留完整流水线、数据与可复现脚本。
 
-[实验记录报告](EXPERIMENT_REPORT.md) · [结果 CSV](eval_nl_comparison.csv)
+[实验记录报告](EXPERIMENT_REPORT.md) · [问题与解决方案](ISSUES_AND_FIXES.md) · [结果 CSV](eval_nl_comparison.csv)
 
 ---
 
@@ -179,7 +179,8 @@ $env:UNSLOTH_COMPILE_DISABLE = "1"
 3. **解析率 100% 幻觉**：格式对、内容可全错。  
 4. **先跑 overfit 门控**：小数据长输出，单条不过就别训满 500 step。
 
-更多失败模式与复现命令 → [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)。
+更多失败模式与复现命令 → [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)。  
+**问题现象、原因与解决办法全集** → [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)。
 
 ---
 
