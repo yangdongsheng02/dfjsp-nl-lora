@@ -319,7 +319,7 @@ LoRA 加载须用 **`unsloth/Qwen2.5-1.5B-Instruct`** 作 base，与 `Qwen/` 命
 }
 ```
 
-**仓库地址：** https://github.com/yangdongsheng02/dfjsp-nl-lora
+**License:** [MIT](LICENSE)
 
 ---
 
