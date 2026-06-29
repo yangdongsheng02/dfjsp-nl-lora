@@ -22,6 +22,7 @@ overfit_lora_sanity/adapter_model.*
 # Logs (optional local runs; key results are in CSV + REPORT)
 *.log
 *.log.err
+gh_login.txt
 
 # IDE / OS
 .idea/

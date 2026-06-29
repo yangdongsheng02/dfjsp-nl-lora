@@ -4,12 +4,22 @@
 > 在 RTX 3050 4GB 上，用 Qwen2.5-1.5B + LoRA 验证小模型能否学会「读题干 → 写完整最优排程」。  
 > **结论：本设定下未成功（negative result）**；仓库保留完整流水线、数据与可复现脚本。
 
-[实验记录报告](EXPERIMENT_REPORT.md) · [问题与解决方案](ISSUES_AND_FIXES.md) · [结果 CSV](eval_nl_comparison.csv)
+[实验记录报告](EXPERIMENT_REPORT.md) · **[问题与解决方案](ISSUES_AND_FIXES.md)** · [结果 CSV](eval_nl_comparison.csv)
+
+### 文档导航
+
+| 文档 | 说明 |
+|------|------|
+| [README.md](README.md) | **项目介绍**（本页）：背景、工程价值、目的、实现、快速开始 |
+| [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md) | **实验记录**：配置、结果表、失败分析、复现命令 |
+| **[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)** | **问题与解决方案**：开发/实验中遇到的问题、原因、解决办法与状态总表 |
+| [eval_nl_comparison.csv](eval_nl_comparison.csv) | Base vs LoRA 汇总指标 |
 
 ---
 
 ## 目录
 
+- [文档导航](#文档导航)
 - [背景与工程价值](#背景与工程价值)
 - [实验目的](#实验目的)
 - [问题场景与数据规模](#问题场景与数据规模)
@@ -173,6 +183,8 @@ $env:UNSLOTH_COMPILE_DISABLE = "1"
 ---
 
 ## 常见警示
+
+> 详细条目（现象 / 原因 / 解决办法 / 是否已解决）见 **[ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)**。
 
 1. **题干 t vs 标签全局 0 轴**：模型易抄 t；设计 NL 任务时输入输出坐标系要一致。  
 2. **loss→0 ≠ 会排产**：必须自由生成 + strict 指标；teacher forcing 会骗人。  

@@ -1,5 +1,5 @@
-# 文档已合并
+# 文档已迁移
 
-项目介绍请阅读 **[README.md](README.md)**（背景、工程价值、目的、实现说明、快速开始）。
-
-本文件不再单独维护。
+- **项目介绍** → [README.md](README.md)
+- **实验记录** → [EXPERIMENT_REPORT.md](EXPERIMENT_REPORT.md)
+- **问题与解决方案** → [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md)
